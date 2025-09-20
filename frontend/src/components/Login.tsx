@@ -3,7 +3,7 @@ import axios from "axios";
 
 // NOTE: Hardcoded API URL to resolve a build warning.
 // In a production setup, this should be handled via environment variables.
-const API_URL = "http://localhost:3001";
+const API_URL = "https://todo-list-app-gsxu.onrender.com";
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState("");
