@@ -10,7 +10,7 @@ services:
     volumes:
       - ./backend/src:/usr/src/app/src # Đồng bộ code để dev
     env_file:
-      - ./backend/.env # Nạp biến môi trường từ file .env
+      - ./backend/.env.backend # Nạp biến môi trường từ file .env
     restart: unless-stopped
 
   frontend:

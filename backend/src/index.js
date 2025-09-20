@@ -11,43 +11,45 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || "your_default_jwt_secret";
+const SALT_ROUNDS = 10;
 
 // Middlewares
 app.use(cors());
 app.use(express.json()); // Cho phép server đọc JSON từ request body
 
 // --- Cấu hình kết nối Database (Render PostgreSQL) ---
-// const pool = new Pool({
-//   connectionString: process.env.DATABASE_URL,
-//   ssl: {
-//     rejectUnauthorized: false
-//   }
-// });
-
-// // Kiểm tra kết nối database
-// pool.connect((err, client, release) => {
-//   if (err) {
-//     return console.error('Error acquiring client', err.stack);
-//   }
-//   console.log('Successfully connected to the database!');
-//   client.query('SELECT NOW()', (err, result) => {
-//     release();
-//     if (err) {
-//       return console.error('Error executing query', err.stack);
-//     }
-//     console.log('Current time from DB:', result.rows[0].now);
-//   });
-// });
-
-// --- Mock User Database (Tạm thời, sẽ thay bằng DB thật) ---
-const users = [];
-
-// --- Routes ---
-app.get("/api", (req, res) => {
-  res.send("Hello from Backend!");
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
 
-// Route đăng ký
+// Hàm tự động tạo bảng 'users' nếu chưa có khi server khởi động
+const initializeDatabase = async () => {
+  const queryText = `
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username VARCHAR(255) UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+  try {
+    await pool.query(queryText);
+    console.log('Database table "users" is initialized and ready.');
+  } catch (err) {
+    console.error("Error initializing database table:", err.stack);
+  }
+};
+
+// --- Routes ---
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok", message: "Backend is healthy" });
+});
+
+// Route đăng ký - ĐÃ SỬA
 app.post("/api/auth/register", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -58,46 +60,56 @@ app.post("/api/auth/register", async (req, res) => {
         .json({ message: "Username and password are required." });
     }
 
-    const existingUser = users.find((u) => u.username === username);
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists." });
-    }
-
-    const salt = await bcrypt.genSalt(10);
+    // Mã hóa mật khẩu trước khi lưu
+    const salt = await bcrypt.genSalt(SALT_ROUNDS);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const newUser = {
-      id: users.length + 1,
-      username,
-      password: hashedPassword,
-    };
-    users.push(newUser);
+    // Dùng câu lệnh SQL để thêm user mới
+    const queryText =
+      "INSERT INTO users(username, password) VALUES($1, $2) RETURNING id, username";
+    const values = [username, hashedPassword];
 
-    console.log("Users after registration:", users);
-    res.status(201).json({ message: "User registered successfully!" });
+    const result = await pool.query(queryText, values);
+    const newUser = result.rows[0];
+
+    console.log("User registered in DB:", newUser);
+    res
+      .status(201)
+      .json({ message: "User registered successfully!", user: newUser });
   } catch (error) {
+    // Mã lỗi '23505' của PostgreSQL là lỗi trùng lặp key (username đã tồn tại)
+    if (error.code === "23505") {
+      return res.status(409).json({ message: "User already exists." });
+    }
+    console.error("Register Error:", error.stack);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-// Route đăng nhập
+// Route đăng nhập - ĐÃ SỬA
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body;
-    const user = users.find((u) => u.username === username);
+
+    // Tìm user trong database
+    const queryText = "SELECT * FROM users WHERE username = $1";
+    const result = await pool.query(queryText, [username]);
+    const user = result.rows[0];
 
     if (!user) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
+    // So sánh mật khẩu nhập vào với mật khẩu đã mã hóa trong DB
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(401).json({ message: "Invalid credentials" });
     }
 
+    // Tạo token nếu mật khẩu khớp
     const token = jwt.sign(
       { id: user.id, username: user.username },
-      process.env.JWT_SECRET || "your_default_jwt_secret",
+      JWT_SECRET,
       { expiresIn: "1h" }
     );
 
@@ -107,6 +119,7 @@ app.post("/api/auth/login", async (req, res) => {
       user: { id: user.id, username: user.username },
     });
   } catch (error) {
+    console.error("Login Error:", error.stack);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -114,4 +127,6 @@ app.post("/api/auth/login", async (req, res) => {
 // Khởi động server
 app.listen(PORT, () => {
   console.log(`Backend server is running on http://localhost:${PORT}`);
+  // Gọi hàm khởi tạo DB khi server bắt đầu chạy
+  initializeDatabase();
 });

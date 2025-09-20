@@ -1,12 +1,9 @@
-import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
-import axios from "axios";
+// import axios from "axios";
 import Login from "./components/Login";
 
 // --- Login Component ---
 // Di chuyển vào đây để giải quyết lỗi import
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
-
 // --- Other Components ---
 function Home() {
   return (
