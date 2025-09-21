@@ -18,10 +18,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "5173:5173" # Map port 5173 của host vào 5173 của container Vite dev server
-    volumes:
-      - ./frontend/src:/usr/src/app/src # Đồng bộ code để dev
-      - ./frontend/public:/usr/src/app/public # Đồng bộ public assets
+      - "8080:80" # Map port 8080 của host vào 80 của container Nginx
     depends_on:
       - backend # Đảm bảo backend khởi động trước frontend
     restart: unless-stopped

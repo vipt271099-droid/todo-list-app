@@ -1,5 +1,6 @@
-# Development Dockerfile for hot reload
-FROM node:20-alpine
+# ---- Stage 1: Build ----
+# Sử dụng base image Node.js để build project React
+FROM node:18-alpine AS build
 
 # Đặt thư mục làm việc
 WORKDIR /usr/src/app
@@ -8,11 +9,25 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 RUN npm install
 
-# Copy toàn bộ source code
+# Copy toàn bộ source code của frontend
 COPY . .
 
-# Expose port cho Vite dev server
-EXPOSE 5173
+# Build project
+RUN npm run build
 
-# Chạy development server với hot reload
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# ---- Stage 2: Serve ----
+# Sử dụng Nginx để serve các file static đã được build
+FROM nginx:stable-alpine
+
+# Copy các file đã build từ stage 'build' vào thư mục public của Nginx
+COPY --from=build /usr/src/app/dist /usr/share/nginx/html
+
+# Copy file cấu hình Nginx
+# File này cần thiết để xử lý routing của React Router
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose port 80
+EXPOSE 80
+
+# Lệnh mặc định để khởi động Nginx
+CMD ["nginx", "-g", "daemon off;"]
