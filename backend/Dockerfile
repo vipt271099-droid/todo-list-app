@@ -4,11 +4,11 @@ FROM node:20-alpine
 # Tạo thư mục làm việc
 WORKDIR /usr/src/app
 
-# Copy package.json và package-lock.json
+# Copy package.json (package-lock.json nếu có)
 COPY package*.json ./
 
 # Cài đặt chỉ production dependencies
-RUN npm ci --only=production
+RUN npm install --only=production
 
 # Copy toàn bộ source code
 COPY . .
