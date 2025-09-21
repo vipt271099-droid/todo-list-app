@@ -1,5 +1,5 @@
 # Đặt tên cho workflow
-name: Build and Push Docker Images to Docker Hub
+name: Build, Push, and Deploy Docker Images
 
 # Trigger: Chạy workflow này mỗi khi có push lên nhánh 'main'
 on:
@@ -8,7 +8,7 @@ on:
 
 # Định nghĩa các công việc cần làm
 jobs:
-  build_and_push:
+  build_push_and_deploy:
     # Chạy trên một máy ảo Ubuntu mới nhất
     runs-on: ubuntu-latest
 
@@ -29,14 +29,22 @@ jobs:
       - name: Build and push Backend image
         uses: docker/build-push-action@v4
         with:
-          context: ./backend # Chỉ định thư mục chứa Dockerfile của backend
-          push: true # Đẩy image sau khi build xong
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/todo-backend:latest # Đặt tên và tag cho image
+          context: ./backend
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/todo-backend:latest
 
       # Bước 4: Build và push image cho Frontend
       - name: Build and push Frontend image
         uses: docker/build-push-action@v4
         with:
-          context: ./frontend # Chỉ định thư mục chứa Dockerfile của frontend
-          push: true # Đẩy image sau khi build xong
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/todo-frontend:latest # Đặt tên và tag cho image
+          context: ./frontend
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/todo-frontend:latest
+
+      # BƯỚC 5 (MỚI): Trigger deploy cho Backend trên Render
+      - name: Trigger Render Backend Deploy
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_BACKEND }}
+
+      # BƯỚC 6 (MỚI): Trigger deploy cho Frontend trên Render
+      - name: Trigger Render Frontend Deploy
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_FRONTEND }}
