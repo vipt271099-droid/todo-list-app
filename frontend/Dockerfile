@@ -1,6 +1,6 @@
+# Production Dockerfile (default for Render deployment)
 # ---- Stage 1: Build ----
-# Sử dụng base image Node.js để build project React
-FROM node:18-alpine AS build
+FROM node:20-alpine AS build
 
 # Đặt thư mục làm việc
 WORKDIR /usr/src/app
@@ -9,10 +9,10 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 RUN npm install
 
-# Copy toàn bộ source code của frontend
+# Copy toàn bộ source code
 COPY . .
 
-# Build project
+# Build project cho production
 RUN npm run build
 
 # ---- Stage 2: Serve ----
@@ -23,7 +23,6 @@ FROM nginx:stable-alpine
 COPY --from=build /usr/src/app/dist /usr/share/nginx/html
 
 # Copy file cấu hình Nginx
-# File này cần thiết để xử lý routing của React Router
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expose port 80

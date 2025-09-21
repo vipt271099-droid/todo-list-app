@@ -1,4 +1,4 @@
-# Production Dockerfile (default for Render deployment)
+# Development Dockerfile for hot reload
 FROM node:20-alpine
 
 # Tạo thư mục làm việc
@@ -7,8 +7,8 @@ WORKDIR /usr/src/app
 # Copy package.json và package-lock.json
 COPY package*.json ./
 
-# Cài đặt chỉ production dependencies
-RUN npm ci --only=production
+# Cài đặt dependencies (bao gồm devDependencies cho nodemon)
+RUN npm install
 
 # Copy toàn bộ source code
 COPY . .
@@ -16,5 +16,5 @@ COPY . .
 # Expose port mà ứng dụng sẽ chạy
 EXPOSE 3001
 
-# Lệnh để chạy ứng dụng production
-CMD ["npm", "start"]
+# Lệnh để chạy ứng dụng với nodemon cho hot reload
+CMD ["npm", "run", "dev"]
