@@ -1,0 +1,42 @@
+# Đặt tên cho workflow
+name: Build and Push Docker Images to Docker Hub
+
+# Trigger: Chạy workflow này mỗi khi có push lên nhánh 'main'
+on:
+  push:
+    branches: ["main"]
+
+# Định nghĩa các công việc cần làm
+jobs:
+  build_and_push:
+    # Chạy trên một máy ảo Ubuntu mới nhất
+    runs-on: ubuntu-latest
+
+    # Các bước thực hiện
+    steps:
+      # Bước 1: Lấy code từ repository về máy ảo
+      - name: Check out the repo
+        uses: actions/checkout@v3
+
+      # Bước 2: Đăng nhập vào Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Bước 3: Build và push image cho Backend
+      - name: Build and push Backend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend # Chỉ định thư mục chứa Dockerfile của backend
+          push: true # Đẩy image sau khi build xong
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/todo-backend:latest # Đặt tên và tag cho image
+
+      # Bước 4: Build và push image cho Frontend
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend # Chỉ định thư mục chứa Dockerfile của frontend
+          push: true # Đẩy image sau khi build xong
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/todo-frontend:latest # Đặt tên và tag cho image
