@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "reactstrap";
 import { API_URL } from "../../shared/const";
 

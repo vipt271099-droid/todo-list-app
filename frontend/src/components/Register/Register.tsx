@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Button, Input, Label, Spinner } from "reactstrap";
 import { API_URL } from "../../shared/const";
 import axios from "axios";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 
 const Register = () => {
   const [formValues, setFormValues] = useState({
