@@ -1,6 +1,11 @@
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 // import axios from "axios";
-import Login from "./components/Login";
+import Login from "./components/Login/Login";
+import PrivateRoute from "./components/PrivateRoute";
+import PublicRoute from "./components/PublicRoute";
+import Register from "./components/Register/Register";
+import Dashboard from "./components/Dashboard/Dashboard";
+import { ToastContainer } from "react-toastify";
 
 // --- Login Component ---
 // Di chuyển vào đây để giải quyết lỗi import
@@ -16,38 +21,38 @@ function Home() {
   );
 }
 
-function Register() {
-  return <h1>Register Page (to be implemented)</h1>;
-}
-
-function Dashboard() {
-  // Hàm logout đơn giản là xóa token
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    window.location.href = "/login";
-  };
-
-  return (
-    <div>
-      <h1>Dashboard - Your To-dos</h1>
-      <p>Welcome! You are logged in.</p>
-      <button onClick={handleLogout}>Logout</button>
-    </div>
-  );
-}
-
 // --- Main App Component ---
 function App() {
-  const token = localStorage.getItem("token");
-
   return (
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={token ? <Dashboard /> : <Login />} />
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <PublicRoute>
+              <Register />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <PrivateRoute>
+              <Dashboard />
+            </PrivateRoute>
+          }
+        />
       </Routes>
+      <ToastContainer />
     </Router>
   );
 }

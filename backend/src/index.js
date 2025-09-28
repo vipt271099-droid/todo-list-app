@@ -32,6 +32,7 @@ const initializeDatabase = async () => {
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       username VARCHAR(255) UNIQUE NOT NULL,
+      email VARCHAR(255) UNIQUE NOT NULL,
       password TEXT NOT NULL,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
@@ -39,9 +40,40 @@ const initializeDatabase = async () => {
   try {
     await pool.query(queryText);
     console.log('Database table "users" is initialized and ready.');
+
+    // Thêm cột email nếu bảng đã tồn tại nhưng chưa có cột email
+    const addEmailColumn = `
+      DO $$ 
+      BEGIN 
+        BEGIN
+          ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE;
+        EXCEPTION
+          WHEN duplicate_column THEN RAISE NOTICE 'Column email already exists in users table.';
+        END;
+      END $$;
+    `;
+    await pool.query(addEmailColumn);
   } catch (err) {
     console.error("Error initializing database table:", err.stack);
   }
+};
+
+// --- Middleware xác thực ---
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
+
+  if (token == null) {
+    return res.status(401).json({ message: "Access token required" });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ message: "Invalid or expired token" });
+    }
+    req.user = user;
+    next();
+  });
 };
 
 // --- Routes ---
@@ -49,15 +81,46 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "Backend is healthy" });
 });
 
+// Route lấy thông tin user
+app.get("/api/user/profile", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Lấy thông tin user từ database (không lấy password)
+    const queryText =
+      "SELECT id, username, email, created_at FROM users WHERE id = $1";
+    const result = await pool.query(queryText, [userId]);
+    const user = result.rows[0];
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({
+      message: "User profile retrieved successfully",
+      user: user,
+    });
+  } catch (error) {
+    console.error("Get Profile Error:", error.stack);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // Route đăng ký - ĐÃ SỬA
 app.post("/api/auth/register", async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, email, password } = req.body;
 
-    if (!username || !password) {
+    if (!username || !email || !password) {
       return res
         .status(400)
-        .json({ message: "Username and password are required." });
+        .json({ message: "Username, email and password are required." });
+    }
+
+    // Kiểm tra định dạng email đơn giản
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Invalid email format." });
     }
 
     // Mã hóa mật khẩu trước khi lưu
@@ -66,8 +129,8 @@ app.post("/api/auth/register", async (req, res) => {
 
     // Dùng câu lệnh SQL để thêm user mới
     const queryText =
-      "INSERT INTO users(username, password) VALUES($1, $2) RETURNING id, username";
-    const values = [username, hashedPassword];
+      "INSERT INTO users(username, email, password) VALUES($1, $2, $3) RETURNING id, username, email";
+    const values = [username, email, hashedPassword];
 
     const result = await pool.query(queryText, values);
     const newUser = result.rows[0];
@@ -77,9 +140,12 @@ app.post("/api/auth/register", async (req, res) => {
       .status(201)
       .json({ message: "User registered successfully!", user: newUser });
   } catch (error) {
-    // Mã lỗi '23505' của PostgreSQL là lỗi trùng lặp key (username đã tồn tại)
+    // Mã lỗi '23505' của PostgreSQL là lỗi trùng lặp key (username hoặc email đã tồn tại)
     if (error.code === "23505") {
-      return res.status(409).json({ message: "User already exists." });
+      const errorMessage = error.detail.includes("username")
+        ? "Username already exists."
+        : "Email already exists.";
+      return res.status(409).json({ message: errorMessage });
     }
     console.error("Register Error:", error.stack);
     res.status(500).json({ message: "Server error" });
@@ -116,7 +182,7 @@ app.post("/api/auth/login", async (req, res) => {
     res.json({
       message: "Logged in successfully",
       token,
-      user: { id: user.id, username: user.username },
+      user: { id: user.id, username: user.username, email: user.email },
     });
   } catch (error) {
     console.error("Login Error:", error.stack);
