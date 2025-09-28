@@ -29,7 +29,10 @@ const Dashboard = () => {
   return (
     <div>
       <h1>Dashboard - Your To-dos</h1>
-      <p>Welcome {profile?.username}! You are logged in.</p>
+      <p>
+        Welcome <span className="fw-bold">{profile?.username}</span>! You are
+        logged in.
+      </p>
       <Button onClick={handleLogout}>Logout</Button>
     </div>
   );
